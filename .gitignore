@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+
+# Data
+*.db
+data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Env
+.env
+.env.local
+
+# Playwright
+~/.cache/ms-playwright/
+
+# Downloads
+spike/douyin_videos/
+
+# Logs
+*.log
+log/
+
+# Caches
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+

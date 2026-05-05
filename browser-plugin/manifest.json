@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "MindVault",
+  "version": "1.0",
+  "description": "选中文本保存到 MindVault",
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "host_permissions": ["http://*/", "https://*/"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "MindVault",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "commands": {
+    "save-to-mindvault": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+V",
+        "mac": "Command+Shift+V"
+      },
+      "description": "保存选中内容到 MindVault"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.bilibili.com/video/*",
+        "https://www.bilibili.com/bangumi/play/*",
+        "https://www.bilibili.com/list/watchlater*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
