@@ -9,42 +9,7 @@
 Response: { "status": "ok" }
 ```
 
-## 内容摄入 (Ingest) (v1)
-
-### POST /api/v1/ingest/link
-提交链接进行抓取和处理。
-
-```
-Request:
-{
-  "url": "https://www.bilibili.com/video/BV1xx411c7mD",
-  "tags": []
-}
-
-Response 202:
-{
-  "id": 1,
-  "status": "pending",
-  "message": "内容正在抓取处理"
-}
-```
-
-### POST /api/v1/ingest/bookmark
-快速暂存链接（不分析，仅保存链接，后续手动触发分析）。
-
-```
-Request:
-{
-  "url": "https://www.bilibili.com/video/BV1xx411c7mD"
-}
-
-Response 201:
-{
-  "id": 1,
-  "status": "completed",
-  "message": "链接已暂存"
-}
-```
+## 内容摄入 (Ingest)
 
 ### POST /api/v1/ingest/text
 手动添加内容。
@@ -66,27 +31,10 @@ Response 201:
 }
 ```
 
-### POST /api/v1/ingest/check
-提交前检查链接是否已存在。
-
-```
-Request:
-{
-  "url": "https://www.bilibili.com/video/BV1xx411c7mD"
-}
-
-Response:
-{
-  "exists": true,
-  "link_id": 1,
-  "title": "已有的标题"
-}
-```
-
-## 链接管理 (Links) (v1)
+## 链接管理 (Links)
 
 ### GET /api/v1/links
-获取链接列表。
+获取内容列表。
 
 ```
 Query:
@@ -104,7 +52,8 @@ Response:
       "id": 1,
       "url": "...",
       "title": "...",
-      "source": "bilibili",
+      "source": "manual",
+      "content": "...",
       "summary": "...",
       "tags": [{"id": 1, "name": "AI", "color": "#3b82f6"}],
       "status": "completed",
@@ -121,7 +70,7 @@ Response:
 ```
 
 ### GET /api/v1/links/{id}
-获取单条链接详情。
+获取单条内容详情。
 
 ```
 Response:
@@ -131,7 +80,7 @@ Response:
   "title": "...",
   "content": "...",
   "raw_content": "...",
-  "source": "bilibili",
+  "source": "manual",
   "summary": "...",
   "tags": [...],
   "status": "completed",
@@ -143,19 +92,19 @@ Response:
 ```
 
 ### DELETE /api/v1/links/{id}
-删除链接。
+删除内容。
 
 ```
 Response 204: No Content
 ```
 
 ### PATCH /api/v1/links/{id}
-手动补充内容并触发重新分析。
+修改内容。
 
 ```
 Request:
 {
-  "content": "手动粘贴的正文内容...",
+  "content": "手动更新的正文内容...",
   "title": "可选的新标题"
 }
 
@@ -163,13 +112,11 @@ Response 200:
 {
   "id": 1,
   "content": "...",
-  "status": "pending",
+  "title": "...",
   "tags": [...],
-  "error": null
+  "status": "completed"
 }
 ```
-
-> 用于 status = no_content 的链接：粘贴内容后保存，后台 AI 管线重新生成摘要和标签，同时移除"未成功"标签。
 
 ### PATCH /api/v1/links/{id}/read-status
 更新阅读状态。
@@ -179,19 +126,7 @@ Request:  { "is_read": true }
 Response: { "id": 1, "is_read": true }
 ```
 
-### POST /api/v1/links/{id}/analyze
-触发分析管线。
-
-```
-Response 202:
-{
-  "id": 1,
-  "status": "pending",
-  "message": "开始分析该链接"
-}
-```
-
-## 标签管理 (Tags) (v1)
+## 标签管理 (Tags)
 
 ### GET /api/v1/tags
 获取所有标签。
@@ -232,14 +167,14 @@ Response 204: No Content
 ```
 
 ### PUT /api/v1/links/{link_id}/tags
-更新某个链接的标签。
+更新某条内容的标签。
 
 ```
 Request:  { "tag_ids": [1, 2, 3] }
 Response: { "tag_ids": [1, 2, 3] }
 ```
 
-## 标签聚合 (Tag Summary) (v1)
+## 标签聚合 (Tag Summary)
 
 ### GET /api/v1/tags/{id}/summary
 
@@ -254,7 +189,7 @@ Response:
 }
 ```
 
-## 搜索 (Search) (v1)
+## 搜索 (Search)
 
 ### GET /api/v1/search
 全文搜索。
@@ -268,22 +203,20 @@ Query:
 
 Response:
 {
-  "items": [
-    {
-      "id": 1,
-      "title": "...",
-      "content": "...",
-      "source": "bilibili",
-      "summary": "...",
-      "tags": [...],
-      "created_at": "..."
-    }
-  ],
+  "items": [...],
   "total": 10,
   "page": 1,
   "page_size": 20
 }
 ```
+
+## 数据导出 (Export)
+
+### GET /api/v1/export/json
+导出全部数据为 JSON 格式。
+
+### GET /api/v1/export/markdown
+导出全部数据为 Markdown ZIP 包。
 
 ## 状态码说明
 
@@ -291,10 +224,10 @@ Response:
 |--------|------|
 | 200 | 成功 |
 | 201 | 创建成功 |
-| 202 | 异步任务已接受 |
 | 204 | 删除成功 |
 | 400 | 参数错误 |
 | 404 | 资源不存在 |
+| 409 | 资源冲突（如标签重名） |
 | 422 | 参数校验失败 |
 
 ## 错误响应格式
