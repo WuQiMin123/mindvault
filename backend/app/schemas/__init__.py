@@ -1,15 +1,6 @@
 from pydantic import BaseModel
 
 
-class LinkCreate(BaseModel):
-    url: str
-    tags: list[str] = []
-
-
-class LinkBookmark(BaseModel):
-    url: str
-
-
 class TextCreate(BaseModel):
     title: str
     content: str

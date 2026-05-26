@@ -17,18 +17,27 @@ export default function TagDetailPage() {
   const [links, setLinks] = useState<LinkResponse[]>([]);
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    api.listTags().then(async (tags) => {
-      const found = tags.find((t) => t.name === tagName);
-      if (!found) return setLoading(false);
-      setTag(found);
-      const data = await api.getTagSummary(found.id);
-      setLinks(data.links);
-      setSummary(data.aggregate_summary);
-      setLoading(false);
-    });
+    api.listTags()
+      .then(async (tags) => {
+        const found = tags.find((t) => t.name === tagName);
+        if (!found) {
+          setLoading(false);
+          return;
+        }
+        setTag(found);
+        const data = await api.getTagSummary(found.id);
+        setLinks(data.links);
+        setSummary(data.aggregate_summary);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "加载失败");
+        setLoading(false);
+      });
   }, [tagName]);
 
   const filtered = search
@@ -39,7 +48,25 @@ export default function TagDetailPage() {
       )
     : links;
 
-  if (loading) return <div className="text-center text-muted-foreground py-12">加载中...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+        <div className="h-8 w-40 animate-pulse rounded bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500 mb-4">{error}</p>
+        <button className="text-sm text-muted-foreground hover:underline cursor-pointer" onClick={() => router.push("/tags")}>
+          &larr; 返回标签列表
+        </button>
+      </div>
+    );
+  }
   if (!tag) return <div className="text-center text-muted-foreground py-12">标签不存在</div>;
 
   return (

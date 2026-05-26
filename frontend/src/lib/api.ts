@@ -81,10 +81,6 @@ export const api = {
     });
   },
 
-  analyzeLink(id: number): Promise<void> {
-    return request(`/links/${id}/analyze`, { method: "POST" });
-  },
-
   updateLinkContent(id: number, content: string, title?: string): Promise<LinkResponse> {
     return request(`/links/${id}`, {
       method: "PATCH",
@@ -93,29 +89,11 @@ export const api = {
   },
 
   // Ingest
-  ingestLink(url: string, tags?: string[]): Promise<{ id: number }> {
-    return request("/ingest/link", {
-      method: "POST",
-      body: JSON.stringify({ url, tags: tags || [] }),
-    });
-  },
-
-  bookmarkLink(url: string): Promise<{ id: number }> {
-    return request("/ingest/bookmark", {
-      method: "POST",
-      body: JSON.stringify({ url }),
-    });
-  },
-
   ingestText(title: string, content: string, tags?: string[]): Promise<{ id: number }> {
     return request("/ingest/text", {
       method: "POST",
       body: JSON.stringify({ title, content, tags: tags || [] }),
     });
-  },
-
-  checkLink(url: string): Promise<{ exists: boolean; link_id?: number }> {
-    return request(`/ingest/check?url=${encodeURIComponent(url)}`);
   },
 
   // Tags
@@ -143,6 +121,15 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ tag_ids: tagIds }),
     });
+  },
+
+  // Export
+  getExportJsonUrl(): string {
+    return `${API_BASE}/export/json`;
+  },
+
+  getExportMarkdownUrl(): string {
+    return `${API_BASE}/export/markdown`;
   },
 
   // Search

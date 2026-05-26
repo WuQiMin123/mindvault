@@ -16,14 +16,21 @@ import {
 export default function TagsPage() {
   const [tags, setTags] = useState<TagResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
 
   function load() {
     setLoading(true);
-    api.listTags().then((t) => {
-      setTags(t);
-      setLoading(false);
-    });
+    setError(null);
+    api.listTags()
+      .then((t) => {
+        setTags(t);
+        setLoading(false);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : "加载失败");
+        setLoading(false);
+      });
   }
 
   useEffect(load, []);
@@ -40,7 +47,27 @@ export default function TagsPage() {
     load();
   }
 
-  if (loading) return <div className="text-center text-muted-foreground py-12">加载中...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-16 animate-pulse rounded bg-muted" />
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-7 w-20 animate-pulse rounded-full bg-muted" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button onClick={load}>重试</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

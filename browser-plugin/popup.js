@@ -6,12 +6,14 @@ const sourceLabel = document.getElementById("sourceLabel");
 const tagInput = document.getElementById("tagInput");
 const addTagBtn = document.getElementById("addTagBtn");
 const tagsContainer = document.getElementById("tags");
+const availableTagsEl = document.getElementById("availableTags");
 const saveBtn = document.getElementById("saveBtn");
 const cancelBtn = document.getElementById("cancelBtn");
 const statusEl = document.getElementById("status");
 
 let tags = [];
 let sourceUrl = "";
+let allTags = [];
 
 chrome.storage.session.get(["pendingData", "bilibiliData"], ({ pendingData, bilibiliData }) => {
   // 优先级: 右键/快捷键选中文本 > B站自动字幕 > 无内容
@@ -35,6 +37,40 @@ function showForm(title, text, url, label) {
   sourceUrl = url;
   sourceLabel.textContent = label;
   saveBtn.disabled = false;
+  loadAvailableTags();
+}
+
+async function loadAvailableTags() {
+  const { apiUrl } = await chrome.storage.sync.get("apiUrl");
+  const baseUrl = apiUrl || "http://localhost:8001/api/v1";
+  try {
+    const res = await fetch(`${baseUrl}/tags`);
+    if (res.ok) {
+      allTags = await res.json();
+      renderAvailableTags();
+    }
+  } catch {
+    // 获取标签失败时静默忽略
+  }
+}
+
+function renderAvailableTags() {
+  availableTagsEl.innerHTML = allTags
+    .map((t) => {
+      const used = tags.includes(t.name);
+      return `<span class="available-tag${used ? " used" : ""}" data-tag="${t.name}">${t.name}</span>`;
+    })
+    .join("");
+  availableTagsEl.querySelectorAll(".available-tag:not(.used)").forEach((el) => {
+    el.addEventListener("click", () => {
+      const name = el.dataset.tag;
+      if (name && !tags.includes(name)) {
+        tags.push(name);
+        renderTags();
+        renderAvailableTags();
+      }
+    });
+  });
 }
 
 function retryLoad(remaining) {
@@ -62,6 +98,7 @@ addTagBtn.addEventListener("click", () => {
   if (t && !tags.includes(t)) {
     tags.push(t);
     renderTags();
+    renderAvailableTags();
   }
   tagInput.value = "";
 });
@@ -118,6 +155,7 @@ function renderTags() {
     btn.addEventListener("click", () => {
       tags = tags.filter((t) => t !== btn.dataset.tag);
       renderTags();
+      renderAvailableTags();
     });
   });
 }

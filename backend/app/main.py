@@ -1,5 +1,4 @@
 import logging
-import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,25 +10,24 @@ from app.database import init_db
 
 logger = logging.getLogger(__name__)
 
-# Windows 上 Playwright 需要 ProactorEventLoop 才能启动子进程
-if sys.platform == "win32":
-    import asyncio
-
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
     await init_db()
-    logger.info("mindvault started")
+
+    # 启动自检
+    if not settings.llm_api_key:
+        logger.warning("LLM_API_KEY 未配置 — AI 摘要和打标签功能将不可用")
+    if not settings.database_url:
+        logger.warning("DATABASE_URL 未配置，将使用默认 SQLite")
+    logger.info("started | host=%s port=%s", settings.host, settings.port)
     yield
     logger.info("mindvault stopped")
 
 
 app = FastAPI(
     title="MindVault API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 

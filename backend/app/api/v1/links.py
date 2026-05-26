@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -8,7 +8,6 @@ from app.models.link import Link
 from app.models.link_tag import link_tag
 from app.models.tag import Tag
 from app.schemas import LinkResponse, LinkUpdate, TagResponse
-from app.services.task_runner import ensure_tag, process_link
 
 router = APIRouter()
 
@@ -105,34 +104,13 @@ async def update_read_status(link_id: int, body: dict, db: AsyncSession = Depend
     return {"id": link.id, "is_read": bool(link.is_read)}
 
 
-@router.post("/{link_id}/analyze", status_code=202)
-async def analyze_link(
-    link_id: int,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(Link).where(Link.id == link_id))
-    link = result.scalar_one_or_none()
-    if not link:
-        raise HTTPException(status_code=404, detail="链接不存在")
-    if link.status not in ("pending", "no_content") and link.content is not None:
-        raise HTTPException(status_code=400, detail="该链接无需分析或已分析过")
-
-    link.status = "pending"
-    await db.commit()
-
-    background_tasks.add_task(process_link, link_id)
-    return {"id": link.id, "status": "pending", "message": "开始分析该链接"}
-
-
 @router.patch("/{link_id}")
 async def update_link(
     link_id: int,
     body: LinkUpdate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ):
-    """手动补充内容后触发 AI 处理"""
+    """手动更新内容"""
     result = await db.execute(
         select(Link).options(selectinload(Link.tags)).where(Link.id == link_id)
     )
@@ -140,32 +118,12 @@ async def update_link(
     if not link:
         raise HTTPException(status_code=404, detail="链接不存在")
 
-    # 先在修改前提取 response（避免 SQLAlchemy 异步 session 过期属性导致 MissingGreenlet）
-    resp = _link_to_response(link)
-    # 更新 response 中会被修改的字段
-    resp.content = body.content
-    resp.raw_content = body.content
-    resp.status = "pending"
-    resp.error = None
-    if body.title:
-        resp.title = body.title
-
     link.content = body.content
     link.raw_content = body.content
     if body.title:
         link.title = body.title
-    link.status = "pending"
-    link.error = None
-
-    # 移除"未成功"标签
-    fail_tag = await ensure_tag(db, "未成功")
-    await db.execute(link_tag.delete().where(
-        link_tag.c.link_id == link.id, link_tag.c.tag_id == fail_tag.id
-    ))
-    # 同步更新 response 中的 tags
-    resp.tags = [t for t in resp.tags if t.id != fail_tag.id]
 
     await db.commit()
 
-    background_tasks.add_task(process_link, link_id)
+    resp = _link_to_response(link)
     return resp

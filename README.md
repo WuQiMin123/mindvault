@@ -117,6 +117,8 @@ mindvault/
 | DELETE | `/api/v1/tags/{id}` | 删除标签 |
 | GET | `/api/v1/tags/{id}/summary` | 标签聚合总结 |
 | GET | `/api/v1/search?q=keyword&tag=1` | 搜索（关键词+标签筛选） |
+| GET | `/api/v1/export/json` | 导出全部数据为 JSON |
+| GET | `/api/v1/export/markdown` | 导出全部数据为 Markdown ZIP |
 
 完整 API 文档见 [`docs/API接口设计.md`](docs/API接口设计.md)。
 

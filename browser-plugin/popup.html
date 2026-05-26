@@ -60,6 +60,21 @@
       padding: 0;
     }
     .tag button:hover { color: #2563eb; }
+    .available-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      background: #f3f4f6;
+      color: #374151;
+      border: 1px dashed #d1d5db;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .available-tag:hover { background: #e5e7eb; border-color: #9ca3af; }
+    .available-tag.used { opacity: 0.3; cursor: default; background: #f9fafb; }
+    .available-tag.used:hover { background: #f9fafb; border-color: #d1d5db; }
     .actions { display: flex; gap: 8px; }
     .actions button {
       flex: 1;
@@ -105,7 +120,12 @@
     </div>
 
     <div class="row">
-      <label>标签</label>
+      <label>已有标签（点击选择）</label>
+      <div id="availableTags" class="tags" style="min-height:8px;"></div>
+    </div>
+
+    <div class="row">
+      <label>已选标签</label>
       <div class="tag-input">
         <input id="tagInput" type="text" placeholder="输入标签后点添加" />
         <button id="addTagBtn">添加</button>

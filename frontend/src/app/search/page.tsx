@@ -21,6 +21,7 @@ export default function SearchPage() {
   const [tags, setTags] = useState<TagResponse[]>([]);
   const [selectedTag, setSelectedTag] = useState("");
   const [searched, setSearched] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     api.listTags().then(setTags);
@@ -28,15 +29,20 @@ export default function SearchPage() {
 
   async function handleSearch(p?: number) {
     const pg = p ?? 1;
-    const res = await api.search({
-      q,
-      tag_ids: selectedTag,
-      page: pg,
-    });
-    setResults(res.items);
-    setTotal(res.total);
-    setPage(pg);
-    setSearched(true);
+    setSearching(true);
+    try {
+      const res = await api.search({
+        q,
+        tag_ids: selectedTag,
+        page: pg,
+      });
+      setResults(res.items);
+      setTotal(res.total);
+      setPage(pg);
+      setSearched(true);
+    } finally {
+      setSearching(false);
+    }
   }
 
   return (
@@ -67,11 +73,21 @@ export default function SearchPage() {
       </div>
 
       <div className="space-y-3">
-        {results.map((link) => (
-          <LinkCard key={link.id} link={link} />
-        ))}
-        {searched && results.length === 0 && (
-          <p className="text-sm text-muted-foreground">未找到匹配内容</p>
+        {searching ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
+            ))}
+          </div>
+        ) : (
+          <>
+            {results.map((link) => (
+              <LinkCard key={link.id} link={link} />
+            ))}
+            {searched && results.length === 0 && (
+              <p className="text-sm text-muted-foreground">未找到匹配内容</p>
+            )}
+          </>
         )}
       </div>
 

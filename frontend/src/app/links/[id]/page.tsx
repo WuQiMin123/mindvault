@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api, type LinkResponse, type TagResponse } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { TagBadge } from "@/components/tag-badge";
 import {
   Select,
@@ -21,12 +22,9 @@ export default function LinkDetailPage() {
   const [link, setLink] = useState<LinkResponse | null>(null);
   const [allTags, setAllTags] = useState<TagResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState("");
-  const [manualContent, setManualContent] = useState("");
-  const [saving, setSaving] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [newTagName, setNewTagName] = useState("");
 
   const linkId = Number(params.id);
 
@@ -38,45 +36,46 @@ export default function LinkDetailPage() {
     setLink(l);
     setAllTags(tags);
     setLoading(false);
-    return l;
-  }, [linkId]);
-
-  // 轮询：当状态为 pending 时，每隔 2s 刷新直到完成
-  const startPolling = useCallback(() => {
-    if (pollRef.current) return;
-    pollRef.current = setInterval(async () => {
-      const l = await api.getLink(linkId);
-      setLink(l);
-      if (l.status !== "pending") {
-        if (pollRef.current) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-        }
-        setAnalyzing(false);
-      }
-    }, 2000);
   }, [linkId]);
 
   useEffect(() => {
-    load().then((l) => {
-      if (l && l.status === "pending") {
-        setAnalyzing(true);
-        startPolling();
-      }
-    });
-    return () => {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
-  }, [load, startPolling]);
+    load();
+  }, [load]);
 
   async function handleAddTag() {
-    if (!selectedTagId || !link) return;
+    if (!link) return;
     const currentIds = link.tags.map((t) => t.id);
-    await api.updateLinkTags(link.id, [...currentIds, Number(selectedTagId)]);
-    setSelectedTagId("");
+
+    if (selectedTagId) {
+      await api.updateLinkTags(link.id, [...currentIds, Number(selectedTagId)]);
+      setSelectedTagId("");
+    }
+
+    const tagName = newTagName.trim();
+    if (tagName) {
+      // 先查是否已有同名标签
+      const existing = allTags.find((t) => t.name === tagName);
+      if (existing) {
+        if (!currentIds.includes(existing.id)) {
+          await api.updateLinkTags(link.id, [...currentIds, existing.id]);
+        }
+      } else {
+        try {
+          const created = await api.createTag(tagName);
+          await api.updateLinkTags(link.id, [...currentIds, created.id]);
+        } catch {
+          // 409 冲突：刷新标签列表后重试
+          const tags = await api.listTags();
+          setAllTags(tags);
+          const match = tags.find((t) => t.name === tagName);
+          if (match && !currentIds.includes(match.id)) {
+            await api.updateLinkTags(link.id, [...currentIds, match.id]);
+          }
+        }
+      }
+      setNewTagName("");
+    }
+
     load();
   }
 
@@ -92,22 +91,6 @@ export default function LinkDetailPage() {
     setDeleting(true);
     await api.deleteLink(linkId);
     router.push("/");
-  }
-
-  async function handleAnalyze() {
-    if (!link) return;
-    setAnalyzing(true);
-    await api.analyzeLink(link.id);
-    startPolling();
-  }
-
-  async function handleSaveManualContent() {
-    if (!link || !manualContent.trim()) return;
-    setSaving(true);
-    await api.updateLinkContent(link.id, manualContent);
-    setManualContent("");
-    setAnalyzing(true);
-    startPolling();
   }
 
   if (loading) return <div className="text-center text-muted-foreground py-12">加载中...</div>;
@@ -126,12 +109,11 @@ export default function LinkDetailPage() {
 
       <h1 className="text-2xl font-bold">{link.title}</h1>
 
-      {/* 标签编辑 */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">标签</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             {link.tags.map((t) => (
               <span key={t.id} className="group relative">
@@ -145,11 +127,14 @@ export default function LinkDetailPage() {
                 </button>
               </span>
             ))}
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
             {availableTags.length > 0 && (
-              <div className="flex items-center gap-1">
+              <>
                 <Select value={selectedTagId} onValueChange={(v) => v && setSelectedTagId(v)}>
-                  <SelectTrigger className="h-7 w-28 text-xs">
-                    <SelectValue placeholder="添加标签" />
+                  <SelectTrigger className="h-8 w-32 text-xs">
+                    <SelectValue placeholder="选择标签" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableTags.map((t) => (
@@ -159,74 +144,31 @@ export default function LinkDetailPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleAddTag}>
-                  添加
-                </Button>
-              </div>
+                <span className="text-xs text-muted-foreground">或</span>
+              </>
             )}
+            <Input
+              className="h-8 w-28 text-xs"
+              placeholder="新建标签"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddTag()}
+            />
+            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={handleAddTag}>
+              添加
+            </Button>
           </div>
         </CardContent>
       </Card>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <Badge variant="secondary">{link.source}</Badge>
-        <span>
-          状态:{" "}
-          {analyzing ? (
-            <span className="text-amber-600 font-medium">分析中...</span>
-          ) : (
-            link.status
-          )}
-        </span>
         {link.url && (
           <a href={link.url} target="_blank" rel="noreferrer" className="hover:underline">
             原文链接 &rarr;
           </a>
         )}
       </div>
-
-      {analyzing && (
-        <Card>
-          <CardContent className="py-6 text-center text-sm text-muted-foreground">
-            正在分析内容，请稍候...
-          </CardContent>
-        </Card>
-      )}
-
-      {!analyzing && link.error && (
-        <Card className="border-destructive">
-          <CardContent className="py-4 text-sm text-destructive">
-            处理失败: {link.error}
-          </CardContent>
-        </Card>
-      )}
-
-      {!analyzing && link.status === "no_content" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">手动补充内容</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              自动提取失败，可以粘贴正文内容后重新分析
-            </p>
-            <textarea
-              className="w-full min-h-[200px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-              placeholder="在此粘贴内容..."
-              value={manualContent}
-              onChange={(e) => setManualContent(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Button disabled={saving || !manualContent.trim()} onClick={handleSaveManualContent}>
-                {saving ? "保存中..." : "保存并分析"}
-              </Button>
-              <Button variant="outline" onClick={handleAnalyze}>
-                重新抓取
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {link.summary && (
         <Card>
